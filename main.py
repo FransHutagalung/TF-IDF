@@ -85,14 +85,24 @@ class TFIDFAnalyzer:
         self.lemmatizer = WordNetLemmatizer() if use_lemmatization else None
         
         # Inisialisasi vectorizer
+        # self.tfidf_vectorizer = TfidfVectorizer(
+        #     min_df=min_df,
+        #     max_df=max_df,
+        #     ngram_range=ngram_range,
+        #     stop_words=None,  # Kita akan melakukan preprocessing sendiri
+        #     tokenizer=None,  # Kita akan melakukan tokenization sendiri
+        #     preprocessor=None,  # Kita akan melakukan preprocessing sendiri
+        #     token_pattern=None,  # Kita akan melakukan tokenization sendiri
+        # )
+        
         self.tfidf_vectorizer = TfidfVectorizer(
             min_df=min_df,
             max_df=max_df,
             ngram_range=ngram_range,
-            stop_words=None,  # Kita akan melakukan preprocessing sendiri
-            tokenizer=None,  # Kita akan melakukan tokenization sendiri
-            preprocessor=None,  # Kita akan melakukan preprocessing sendiri
-            token_pattern=None,  # Kita akan melakukan tokenization sendiri
+            stop_words=None,  # Already handled in preprocessing
+            tokenizer=lambda text: text.split(),  # Split preprocessed text by spaces
+            preprocessor=None,  # Already handled in preprocessing
+            token_pattern=None,  # Use custom tokenizer instead of regex
         )
         
         # Untuk menyimpan hasil
@@ -335,27 +345,31 @@ class TFIDFAnalyzer:
         return cluster_df
     
     def visualize_clusters(self, method='tsne'):
+   
         """
         Memvisualisasikan cluster dokumen.
-        
         Parameters:
         -----------
         method : str, default='tsne'
             Metode dimensionality reduction ('tsne', 'pca', 'svd')
-            
         Returns:
         --------
         matplotlib.figure.Figure
             Figure hasil visualisasi
         """
         start_time = time.time()
-        
         if self.document_clusters is None:
             raise ValueError("Run cluster_documents() first before visualizing clusters")
         
         # Mengurangi dimensi untuk visualisasi
         if method == 'tsne':
-            reducer = TSNE(n_components=2, random_state=42)
+            # Gunakan init='random' dan perplexity < n_samples (10)
+            reducer = TSNE(
+                n_components=2, 
+                random_state=42, 
+                perplexity=5,  # Perbaikan: perplexity < 10
+                init='random'    # Perbaikan: Hindari PCA untuk matriks sparse
+            )
         elif method == 'pca':
             reducer = PCA(n_components=2, random_state=42)
         elif method == 'svd':
@@ -364,6 +378,7 @@ class TFIDFAnalyzer:
             raise ValueError("Method must be one of 'tsne', 'pca', or 'svd'")
         
         reduced_features = reducer.fit_transform(self.tfidf_matrix)
+    # ... (sisa kode tetap sama)
         
         # Membuat DataFrame untuk plotting
         cluster_viz_df = pd.DataFrame({
@@ -1622,3 +1637,74 @@ class StreamingTFIDFProcessor:
         plt.tight_layout()
         
         return plt.gcf()
+    
+if __name__ == "__main__":
+    # Contoh dokumen dan nama dokumen
+    documents = [
+        "TF-IDF adalah metode statistik untuk mengukur pentingnya kata dalam dokumen.",
+        "Text mining menggunakan TF-IDF untuk analisis dokumen.",
+        "Machine learning adalah bagian dari kecerdasan buatan.",
+        "Python populer untuk analisis data dan machine learning."
+    ]
+    
+    document_names = [
+        "Doc 1: TF-IDF",
+        "Doc 2: Text Mining",
+        "Doc 3: Machine Learning",
+        "Doc 4: Python"
+    ]
+
+    # Inisialisasi basic analyzer
+    basic_analyzer = TFIDFAnalyzer(
+        language='indonesian',
+        min_df=1,
+        max_df=0.95,
+        use_lemmatization=True
+    )
+    
+    # Training dengan data
+    basic_analyzer.fit(documents, document_names)
+    
+    # Analisis dasar
+    top_terms = basic_analyzer.get_top_terms(n=5)
+    similarity_matrix = basic_analyzer.calculate_document_similarity()
+    clusters = basic_analyzer.cluster_documents(n_clusters=2)
+    
+    # Visualisasi basic
+    basic_analyzer.visualize_clusters(method='pca')
+    basic_analyzer.create_term_frequency_plot()
+    plt.show()
+
+    # Inisialisasi advanced analyzer
+    advanced_analyzer = AdvancedTFIDFAnalyzer(
+        language='indonesian',
+        min_df=1,
+        max_df=0.95,
+        use_lemmatization=True
+    )
+    
+    # Training dengan data yang sama
+    advanced_analyzer.fit(documents, document_names)
+    
+    # Analisis lanjutan
+    topics = advanced_analyzer.extract_topics(n_topics=2)
+    sentiment = advanced_analyzer.analyze_sentiment()
+    
+    # Visualisasi advanced
+    advanced_analyzer.visualize_topics()
+    advanced_analyzer.visualize_sentiment(sentiment)
+    plt.show()
+
+    # Performance report
+    print("\nPerformance Report:")
+    print(basic_analyzer.create_performance_report())
+    
+    # Menyimpan model
+    basic_analyzer.save_model("basic_tfidf_model.pkl")
+    
+    # Contoh streaming processing
+    stream_processor = StreamingTFIDFProcessor(basic_analyzer)
+    new_doc = "Natural Language Processing adalah bidang penting dalam AI"
+    stream_result = stream_processor.process_new_document(new_doc, "Stream Doc 1")
+    print("\nStreaming Processing Result:")
+    print(stream_result)
