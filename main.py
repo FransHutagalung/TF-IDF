@@ -10,7 +10,7 @@ from sklearn.manifold import TSNE
 import nltk
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer, WordNetLemmatizer
-from nltk.tokenize import word_tokenize, sent_tokenize
+from nltk.tokenize import word_tokenize, sent_tokenize 
 import string
 import re
 import os
@@ -162,39 +162,63 @@ class TFIDFAnalyzer:
         return processed_text
     
     def fit(self, documents, document_names=None):
-        """
-        Melatih model TF-IDF pada dokumen-dokumen.
-        
-        Parameters:
-        -----------
-        documents : list
-            Daftar dokumen teks
-        document_names : list, default=None
-            Daftar nama dokumen
-        
-        Returns:
-        --------
-        self
-        """
         start_time = time.time()
-        
         self.documents = documents
-        if document_names:
-            self.document_names = document_names
-        else:
-            self.document_names = [f"Doc {i+1}" for i in range(len(documents))]
-        
         logger.info("Preprocessing documents...")
         self.processed_documents = [self.preprocess_text(doc) for doc in documents]
+        
+        # Filter dokumen kosong dan sesuaikan document_names
+        valid_indices = [i for i, doc in enumerate(self.processed_documents) if doc.strip()]
+        self.processed_documents = [self.processed_documents[i] for i in valid_indices]
+        
+        if document_names:
+            self.document_names = [document_names[i] for i in valid_indices]
+        else:
+            self.document_names = [f"Doc {i+1}" for i in valid_indices]
+        
+        logger.info(f"Valid documents after filtering empty ones: {len(self.processed_documents)}")
         
         logger.info("Calculating TF-IDF matrix...")
         self.tfidf_matrix = self.tfidf_vectorizer.fit_transform(self.processed_documents)
         self.feature_names = np.array(self.tfidf_vectorizer.get_feature_names_out())
-        
         self.execution_time['fit'] = time.time() - start_time
         logger.info(f"TF-IDF matrix created with shape {self.tfidf_matrix.shape}")
-        
         return self
+    
+    # def fit(self, documents, document_names=None):
+    #     """
+    #     Melatih model TF-IDF pada dokumen-dokumen.
+        
+    #     Parameters:
+    #     -----------
+    #     documents : list
+    #         Daftar dokumen teks
+    #     document_names : list, default=None
+    #         Daftar nama dokumen
+        
+    #     Returns:
+    #     --------
+    #     self
+    #     """
+    #     start_time = time.time()
+        
+    #     self.documents = documents
+    #     if document_names:
+    #         self.document_names = document_names
+    #     else:
+    #         self.document_names = [f"Doc {i+1}" for i in range(len(documents))]
+        
+    #     logger.info("Preprocessing documents...")
+    #     self.processed_documents = [self.preprocess_text(doc) for doc in documents]
+        
+    #     logger.info("Calculating TF-IDF matrix...")
+    #     self.tfidf_matrix = self.tfidf_vectorizer.fit_transform(self.processed_documents)
+    #     self.feature_names = np.array(self.tfidf_vectorizer.get_feature_names_out())
+        
+    #     self.execution_time['fit'] = time.time() - start_time
+    #     logger.info(f"TF-IDF matrix created with shape {self.tfidf_matrix.shape}")
+        
+    #     return self
     
     def calculate_manual_tfidf(self):
         """
@@ -364,11 +388,17 @@ class TFIDFAnalyzer:
         # Mengurangi dimensi untuk visualisasi
         if method == 'tsne':
             # Gunakan init='random' dan perplexity < n_samples (10)
+            # reducer = TSNE(
+            #     n_components=2, 
+            #     random_state=42, 
+            #     perplexity=5,  # Perbaikan: perplexity < 10
+            #     init='random'    # Perbaikan: Hindari PCA untuk matriks sparse
+            # )
             reducer = TSNE(
                 n_components=2, 
                 random_state=42, 
-                perplexity=5,  # Perbaikan: perplexity < 10
-                init='random'    # Perbaikan: Hindari PCA untuk matriks sparse
+                perplexity=4,  # Harus < n_samples (5)
+                init='random'
             )
         elif method == 'pca':
             reducer = PCA(n_components=2, random_state=42)
@@ -455,7 +485,8 @@ class TFIDFAnalyzer:
         
         # Plot bar untuk frekuensi kata
         plt.subplot(2, 1, 1)
-        sns.barplot(x=list(top_words.keys()), y=list(top_words.values()), palette='viridis')
+        # sns.barplot(x=list(top_words.keys()), y=list(top_words.values()), palette='viridis')
+        sns.barplot(x=list(top_words.keys()), y=list(top_words.values()), hue=list(top_words.keys()), palette='viridis', legend=False)
         plt.title(f'Top {top_n} Term Frequencies')
         plt.xticks(rotation=45, ha='right')
         plt.xlabel('Term')
@@ -858,30 +889,24 @@ def demo_tfidf_analyzer():
     """
     # Contoh dokumen
     documents = [
-        "TF-IDF stands for Term Frequency-Inverse Document Frequency. It's a numerical statistic that is intended to reflect how important a word is to a document in a collection or corpus.",
-        "The TF-IDF weight is a weight often used in information retrieval and text mining. This weight is a statistical measure used to evaluate how important a word is to a document in a collection or corpus.",
-        "Term frequency is simply the number of times a term appears in a document. Inverse document frequency measures how common or rare a word is across all documents.",
-        "Text mining is the process of deriving meaningful information from natural language text. It uses techniques from natural language processing, information retrieval, and machine learning.",
-        "Information retrieval is the science of searching for information in documents, searching for documents themselves, and also searching for metadata that describes data.",
-        "Machine learning algorithms can learn from and make predictions on data. They use statistics to find patterns in massive amounts of data.",
-        "Natural language processing is a field of artificial intelligence that gives computers the ability to understand text and spoken words in the same way humans can.",
-        "Python is a popular programming language for data science and machine learning. It has many libraries for text processing, such as NLTK and scikit-learn.",
-        "Data visualization is the graphical representation of information and data. Visual elements like charts, graphs, and maps make it easier to understand patterns and trends in data.",
-        "Clustering algorithms group similar documents together based on their content. K-means is a popular clustering algorithm used in text mining."
+        "Fransikus Hutagalung adalah orang yang ingin menjadi programmer di IT Company di AS maupun China.",
+        "Romeo Aldy Bangun sangat suka menonton animasi China saat waktu senggang",
+        "Revania Siahaan dan Jesika Hutagaol telah berteman selama 3 tahun.",
+        "Revania Siahaan memiliki bisnis yang bergerak di bidang Fashion."
+        "Yedija Surbakti membawa kue sebagai hadiah kepada Revania Siahaan." , 
+        "Jesika Hutagaol hobi membuat kue yang sangat lezat dan enak."
+        "Yedija Surbakti membawa kue sebagai hadiah kepada Revania Siahaan."
     ]
     
     # Nama dokumen
     document_names = [
-        "Definition TF-IDF",
-        "Usage of TF-IDF",
-        "Term Frequency",
-        "Text Mining",
-        "Information Retrieval",
-        "Machine Learning",
-        "NLP",
-        "Python",
-        "Data Visualization",
-        "Clustering"
+        "Fransiskus Hutagalung",
+        "Romeo Aldy Bangun",
+        "Reva & Jesika",
+        "Revania Siahaan" , 
+        "Yedija Surbakti" , 
+        "Jesika Hutagaol" 
+        "Yedija Kue"
     ]
     
     # Inisialisasi dan latih analyzer
@@ -1436,32 +1461,51 @@ def demo_advanced_analyzer():
     AdvancedTFIDFAnalyzer
         Instance AdvancedTFIDFAnalyzer yang sudah dilatih
     """
-    # Contoh dokumen yang sama dengan demo sebelumnya
+  
+    # documents = [
+    #     "TF-IDF stands for Term Frequency-Inverse Document Frequency. It's a numerical statistic that is intended to reflect how important a word is to a document in a collection or corpus.",
+    #     "The TF-IDF weight is a weight often used in information retrieval and text mining. This weight is a statistical measure used to evaluate how important a word is to a document in a collection or corpus.",
+    #     "Term frequency is simply the number of times a term appears in a document. Inverse document frequency measures how common or rare a word is across all documents.",
+    #     "Text mining is the process of deriving meaningful information from natural language text. It uses techniques from natural language processing, information retrieval, and machine learning.",
+    #     "Information retrieval is the science of searching for information in documents, searching for documents themselves, and also searching for metadata that describes data.",
+    #     "Machine learning algorithms can learn from and make predictions on data. They use statistics to find patterns in massive amounts of data.",
+    #     "Natural language processing is a field of artificial intelligence that gives computers the ability to understand text and spoken words in the same way humans can.",
+    #     "Python is a popular programming language for data science and machine learning. It has many libraries for text processing, such as NLTK and scikit-learn.",
+    #     "Data visualization is the graphical representation of information and data. Visual elements like charts, graphs, and maps make it easier to understand patterns and trends in data.",
+    #     "Clustering algorithms group similar documents together based on their content. K-means is a popular clustering algorithm used in text mining."
+    # ]
+    
     documents = [
-        "TF-IDF stands for Term Frequency-Inverse Document Frequency. It's a numerical statistic that is intended to reflect how important a word is to a document in a collection or corpus.",
-        "The TF-IDF weight is a weight often used in information retrieval and text mining. This weight is a statistical measure used to evaluate how important a word is to a document in a collection or corpus.",
-        "Term frequency is simply the number of times a term appears in a document. Inverse document frequency measures how common or rare a word is across all documents.",
-        "Text mining is the process of deriving meaningful information from natural language text. It uses techniques from natural language processing, information retrieval, and machine learning.",
-        "Information retrieval is the science of searching for information in documents, searching for documents themselves, and also searching for metadata that describes data.",
-        "Machine learning algorithms can learn from and make predictions on data. They use statistics to find patterns in massive amounts of data.",
-        "Natural language processing is a field of artificial intelligence that gives computers the ability to understand text and spoken words in the same way humans can.",
-        "Python is a popular programming language for data science and machine learning. It has many libraries for text processing, such as NLTK and scikit-learn.",
-        "Data visualization is the graphical representation of information and data. Visual elements like charts, graphs, and maps make it easier to understand patterns and trends in data.",
-        "Clustering algorithms group similar documents together based on their content. K-means is a popular clustering algorithm used in text mining."
+        "Fransikus Hutagalung adalah orang yang ingin menjadi programmer di IT Company di AS maupun China.",
+        "Romeo Aldy Bangun sangat suka menonton animasi China saat waktu senggang",
+        "Revania Siahaan dan Jesika Hutagaol telah berteman selama 3 tahun.",
+        "Revania Siahaan memiliki bisnis yang bergerak di bidang Fashion."
+        "Yedija Surbakti membawa kue sebagai hadiah kepada Revania Siahaan." , 
+        "Jesika Hutagaol hobi membuat kue yang sangat lezat dan enak."
+        "Yedija Surbakti membawa kue sebagai hadiah kepada Revania Siahaan."
     ]
     
     # Nama dokumen
+    # document_names = [
+    #     "Definition TF-IDF",
+    #     "Usage of TF-IDF",
+    #     "Term Frequency",
+    #     "Text Mining",
+    #     "Information Retrieval",
+    #     "Machine Learning",
+    #     "NLP",
+    #     "Python",
+    #     "Data Visualization",
+    #     "Clustering"
+    # ]
     document_names = [
-        "Definition TF-IDF",
-        "Usage of TF-IDF",
-        "Term Frequency",
-        "Text Mining",
-        "Information Retrieval",
-        "Machine Learning",
-        "NLP",
-        "Python",
-        "Data Visualization",
-        "Clustering"
+        "Fransiskus Hutagalung",
+        "Romeo Aldy Bangun",
+        "Reva & Jesika",
+        "Revania Siahaan" , 
+        "Yedija Surbakti" , 
+        "Jesika Hutagaol" 
+        "Yedija Kue"
     ]
     
     # Inisialisasi dan latih analyzer
@@ -1641,18 +1685,36 @@ class StreamingTFIDFProcessor:
 if __name__ == "__main__":
     # Contoh dokumen dan nama dokumen
     documents = [
-        "TF-IDF adalah metode statistik untuk mengukur pentingnya kata dalam dokumen.",
-        "Text mining menggunakan TF-IDF untuk analisis dokumen.",
-        "Machine learning adalah bagian dari kecerdasan buatan.",
-        "Python populer untuk analisis data dan machine learning."
+        "Fransikus Hutagalung adalah orang yang ingin menjadi programmer di IT Company di AS maupun China.",
+        "Romeo Aldy Bangun sangat suka menonton animasi China saat waktu senggang",
+        "Revania Siahaan dan Jesika Hutagaol telah berteman selama 3 tahun.",
+        "Revania Siahaan memiliki bisnis yang bergerak di bidang Fashion."
+        "Yedija Surbakti membawa kue sebagai hadiah kepada Revania Siahaan." , 
+        "Jesika Hutagaol hobi membuat kue yang sangat lezat dan enak."
+        "Yedija Surbakti membawa kue sebagai hadiah kepada Revania Siahaan."
     ]
     
     document_names = [
-        "Doc 1: TF-IDF",
-        "Doc 2: Text Mining",
-        "Doc 3: Machine Learning",
-        "Doc 4: Python"
+        "Fransiskus Hutagalung",
+        "Romeo Aldy Bangun",
+        "Reva & Jesika",
+        "Revania Siahaan" , 
+        "Yedija Surbakti" , 
+        "Jesika Hutagaol" 
+        "Yedija Kue"
     ]
+    
+    # Inisialisasi analyzer
+    analyzer = TFIDFAnalyzer(language='indonesian', use_lemmatization=True)
+    analyzer.fit(documents, document_names)
+
+    # Tambahkan dokumen baru secara dinamis
+    stream_processor = StreamingTFIDFProcessor(analyzer)
+    new_doc = "Teknologi AI semakin berkembang pesat di Indonesia."
+    stream_processor.process_new_document(new_doc, "Dokumen Dinamis")
+
+    # Visualisasi hasil
+    stream_processor.visualize_stream_history()
 
     # Inisialisasi basic analyzer
     basic_analyzer = TFIDFAnalyzer(
@@ -1702,7 +1764,7 @@ if __name__ == "__main__":
     # Menyimpan model
     basic_analyzer.save_model("basic_tfidf_model.pkl")
     
-    # Contoh streaming processing
+ 
     stream_processor = StreamingTFIDFProcessor(basic_analyzer)
     new_doc = "Natural Language Processing adalah bidang penting dalam AI"
     stream_result = stream_processor.process_new_document(new_doc, "Stream Doc 1")
